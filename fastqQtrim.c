@@ -4,6 +4,7 @@
 #include <ctype.h>
 
 #define MAXLETTER 512
+#define QVALUEnUM 93
 #define HEADtRIM 0
 #define TAILtRIM 0
 #define LENGTHlIMIT 0
@@ -11,16 +12,12 @@
 #define MAXlENGTH 0
 
 typedef struct{
-  char *infile;
-  char *outfile;
   int headTrim;
   int tailTrim;
   int shortestLength;
   int longestLength;
   int lowestQuality;
   char showQualityHistogram;
-  FILE *finfile;
-  FILE *foutfile;
 }OPTIONS;
 
 typedef struct{
@@ -35,7 +32,6 @@ typedef struct{
   char *quality;
   char *dnaShow;
   char *qualityShow;
-  int buffSize;
   int length;
 }FASTQ;
 
@@ -45,22 +41,26 @@ int readData(OPTIONS options);
 int destroyFASTQ(FASTQ *sequence);
 FASTQ readOneSequence(FILE *fin);
 char *readOneLine(FILE *fin);
+int processSequence(OPTIONS options, FASTQ *sequence);
 int showResult(FASTQ sequence);
+int showHistogram(int *histogram);
+int initializeHistogram(int *histogram, int number);
+int *cumulateHistogram(int *histogram, FASTQ sequence);
 int chomp(char *string);
+void help(void);
 
 int main(int argc, char *argv[]){
   OPTIONS options;
   options=interface(argc, argv);
   readData(options);
+  return 0;
 }
 
 OPTIONS interface(int argc, char *argv[]){
   OPTIONS options;
   int count;
-  char tmp[MAXLETTER];
   char *key;
   char *value;
-  int number;
   if((argc % 2) == 0){
     help();
   }
@@ -70,6 +70,7 @@ OPTIONS interface(int argc, char *argv[]){
   options.shortestLength = LENGTHlIMIT;
   options.longestLength  = MAXlENGTH;
   options.lowestQuality  = QUALITYtRIMMING;
+  options.showQualityHistogram = 'F';
   for(count=1; count < argc-1; count += 2){
     key=argv[count];
     value=argv[count+1];
@@ -114,7 +115,7 @@ int checkOptionValue(char *key, char *value, int limit){
   return number;
 }
 
-int help(void){
+void help(void){
   fprintf(stderr, "\n%s compiled on %s %s\n", __FILE__, __DATE__, __FILE__);
 
   fprintf(stderr, "  --- usage ---\n");
@@ -128,11 +129,16 @@ int help(void){
   fprintf(stderr, "     the sequence will be trimmed there.\n");
   fprintf(stderr, " -p: [T/F] Just pursue and show quality distribution.\n");
   exit(1);
-  return 0;
 }
 
 int readData(OPTIONS options){
   FASTQ oneSequence;
+  int *histogram;
+  if(options.showQualityHistogram=='T'){
+    histogram=(int *)calloc(QVALUEnUM, sizeof(int));
+  }else{
+    histogram=NULL;
+  }
   while(!feof(stdin)){
     oneSequence=readOneSequence(stdin);
     if(oneSequence.length==0){
@@ -140,12 +146,22 @@ int readData(OPTIONS options){
     }
     if(oneSequence.length!=0 &&
        processSequence(options, &oneSequence)!=0){
-      showResult(oneSequence);
+      if(histogram!=NULL){
+	histogram=cumulateHistogram(histogram, oneSequence);
+      }else{
+	showResult(oneSequence);
+      }
     }else{
       /* fprintf(stderr, "skip\n"); */
     }
     destroyFASTQ(&oneSequence);
   }
+  
+  if(histogram!=NULL){
+    showHistogram(histogram);
+    free(histogram);
+  }
+  return 0;
 }
 
 int destroyFASTQ(FASTQ *sequence){
@@ -165,17 +181,15 @@ int destroyFASTQ(FASTQ *sequence){
 }
 
 FASTQ readOneSequence(FILE *fin){
-  char tmp[MAXLETTER+1];
   FASTQ sequence;
   char *dummy;
-  int realloced=0;
 
   do{
     sequence.name=readOneLine(fin);
   }while(sequence.name[0]!='@' && sequence.name[0]!='\0');
   sequence.dna=readOneLine(fin);
   dummy=readOneLine(fin);
-  if(strcmp(dummy, "+\n")!=0){
+  if(strcmp(dummy, "+\n")!=0 && !feof(stdin)){
       fprintf(stderr, "This file does not seem to be the fastq format. EXIT\n");
       exit(3);
   }
@@ -185,6 +199,8 @@ FASTQ readOneSequence(FILE *fin){
   chomp(sequence.dna);
   chomp(sequence.quality);
   sequence.length=strlen(sequence.dna);
+  sequence.dnaShow=NULL;
+  sequence.qualityShow=NULL;
   return sequence;
 }
 
@@ -222,7 +238,6 @@ char *readOneLine(FILE *fin){
 }
 
 int processSequence(OPTIONS options, FASTQ *sequence){
-  int result;
   int position;
   if(sequence->length < options.headTrim + options.shortestLength){
     /*
@@ -267,6 +282,29 @@ int showResult(FASTQ sequence){
   printf("%s\n", sequence.dnaShow);
   printf("+\n");
   printf("%s\n", sequence.qualityShow);
+  return 0;
+}
+
+int *cumulateHistogram(int *histogram, FASTQ sequence){
+  int position;
+  int quality;
+  for(position=strlen(sequence.qualityShow)-1; position>=0; position--){
+    quality=sequence.qualityShow[position] - '!';
+    if(quality < 0){
+      fprintf(stderr, "something is wrong with quality value\n");
+      exit(5);
+    }
+    histogram[quality]++;
+  }
+  return histogram;
+}
+
+int showHistogram(int *histogram){
+  int i;
+  for(i=0; i < QVALUEnUM; i++){
+    printf("%02d (%c) %d\n", i, i+'!', histogram[i]);
+  }
+  return 0;
 }
 
 int chomp(char *string){
@@ -278,5 +316,5 @@ int chomp(char *string){
       break;
     }
   }
-
+  return 0;
 }

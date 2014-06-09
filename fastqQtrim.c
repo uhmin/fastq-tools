@@ -116,7 +116,7 @@ int checkOptionValue(char *key, char *value, int limit){
 }
 
 void help(void){
-  fprintf(stderr, "\n%s compiled on %s %s\n", __FILE__, __DATE__, __FILE__);
+  fprintf(stderr, "\n%s compiled on %s %s\n", __FILE__, __DATE__, __TIME__);
 
   fprintf(stderr, "  --- usage ---\n");
   fprintf(stderr, " -h: [integer >= 0] Number of bases to trim from the head. \n");

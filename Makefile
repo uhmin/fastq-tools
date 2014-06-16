@@ -5,6 +5,7 @@ all: fastqQtrim.exe
 
 fastqQtrim.exe: fastqQtrim.o
 	gcc $(CFLAGS) -o $@ $+
+	chmod +x *.pl
 
 clean:
 	rm fastqQtrim.exe *.o

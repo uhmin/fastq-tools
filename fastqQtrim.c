@@ -230,7 +230,7 @@ char *readOneLine(FILE *fin){
     }
 
     strcat(string, tmp);
-    length+=templength;
+    length+=tmplength;
     if(strstr(tmp, "\n")!=NULL){
       break;
     }

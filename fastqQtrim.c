@@ -190,7 +190,7 @@ FASTQ readOneSequence(FILE *fin){
   sequence.dna=readOneLine(fin);
   dummy=readOneLine(fin);
   /*if(strcmp(dummy, "+\n")!=0 && !feof(stdin)){*/
-  if(dummy[0]!="+" && !feof(stdin)){
+  if(dummy[0]!='+' && !feof(stdin)){
       fprintf(stderr, "This file does not seem to be the fastq format. EXIT\n");
       exit(3);
   }
